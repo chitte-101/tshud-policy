@@ -1,0 +1,52 @@
+name: リストの確認
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - rules.json
+      - schema.json
+      - .github/workflows/validate-rules.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install jsonschema
+      - name: 定義の形式と改訂番号を確認
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          import jsonschema
+
+          path = Path("rules.json")
+          if path.stat().st_size > 256 * 1024:
+              raise SystemExit("rules.json が 256 KiB を超えています。")
+          current = json.loads(path.read_text(encoding="utf-8"))
+          schema = json.loads(Path("schema.json").read_text(encoding="utf-8"))
+          jsonschema.validate(current, schema, format_checker=jsonschema.FormatChecker())
+          identifiers = [rule["id"] for rule in current["rules"]]
+          if len(identifiers) != len(set(identifiers)):
+              raise SystemExit("同じ id が複数あります。")
+          base = json.loads(subprocess.check_output(
+              ["git", "show", f"{os.environ['BASE_SHA']}:rules.json"]
+          ))
+          if current != base and current["revision"] != base["revision"] + 1:
+              raise SystemExit("revision は main の番号より1つ上げてください。")
+          PY

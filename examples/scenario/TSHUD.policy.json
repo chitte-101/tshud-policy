@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "tsHud": {
+    "defaultOff": true,
+    "reason": "制作者の意向により、TSHUDを既定では表示しません。",
+    "scenarioFiles": ["ExampleScenario.txt"]
+  }
+}
